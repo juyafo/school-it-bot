@@ -1,0 +1,7 @@
+aiogram>=3.13
+sqlalchemy[asyncio]>=2.0
+asyncpg
+pydantic-settings
+openpyxl
+reportlab
+tzdata
