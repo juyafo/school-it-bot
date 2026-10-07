@@ -7,6 +7,11 @@ from aiogram.types import (
 
 REGISTER_BTN = "📝 Ro'yxatdan o'tish"
 
+DAYS = {
+    "mwf": "Dushanba / Chorshanba / Juma",
+    "tts": "Seshanba / Payshanba / Shanba",
+}
+
 
 def main_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
@@ -20,6 +25,15 @@ def phone_kb() -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         one_time_keyboard=True,
         input_field_placeholder="Yoki raqamni yozing: 90 123 45 67",
+    )
+
+
+def days_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=text, callback_data=f"days:{key}")]
+            for key, text in DAYS.items()
+        ]
     )
 
 

@@ -35,9 +35,10 @@ async def show_list(call: CallbackQuery):
         await call.message.answer("Hozircha arizalar yo'q.")
         return
 
-    lines = [
+        lines = [
         f"{i}. <b>{escape(a.full_name)}</b> — {a.grade} — {a.phone}"
-        f"{' — @' + escape(a.username) if a.username else ''} "
+        f"{' — @' + escape(a.username) if a.username else ''}\n"
+        f"      📅 {escape(a.days or '—')} · 🕐 {escape(a.free_time or '—')} "
         f"<i>({a.created_at.astimezone(TZ):%d.%m %H:%M})</i>"
         for i, a in enumerate(apps, 1)
     ]

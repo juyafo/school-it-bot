@@ -1,19 +1,23 @@
 import csv
 import io
+from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 from .db import Application
 
 TZ = ZoneInfo("Asia/Tashkent")
-HEADERS = ["№", "Ism-familiya", "Sinf", "Telefon", "Username", "Sana"]
+HEADERS = [
+    "№", "Ism-familiya", "Sinf", "Telefon", "Kunlar", "Bo'sh vaqt", "Username", "Sana"
+]
 
 
 def _rows(apps: list[Application]) -> list[list[str]]:
@@ -23,6 +27,8 @@ def _rows(apps: list[Application]) -> list[list[str]]:
             a.full_name,
             a.grade,
             a.phone,
+            a.days,
+            a.free_time,
             f"@{a.username}" if a.username else "",
             a.created_at.astimezone(TZ).strftime("%d.%m.%Y %H:%M"),
         ]
@@ -47,7 +53,7 @@ def to_xlsx(apps: list[Application]) -> bytes:
         cell.font = Font(bold=True)
     for row in _rows(apps):
         ws.append(row)
-    for col, width in zip("ABCDEF", (6, 32, 8, 18, 22, 18)):
+    for col, width in zip("ABCDEFGH", (6, 32, 8, 18, 30, 30, 22, 18)):
         ws.column_dimensions[col].width = width
     buf = io.BytesIO()
     wb.save(buf)
@@ -56,17 +62,34 @@ def to_xlsx(apps: list[Application]) -> bytes:
 
 def to_pdf(apps: list[Application]) -> bytes:
     pdfmetrics.registerFont(TTFont("DejaVu", "fonts/DejaVuSans.ttf"))
+    style = ParagraphStyle("cell", fontName="DejaVu", fontSize=8, leading=10)
+
+    def p(text: str) -> Paragraph:
+        return Paragraph(escape(text), style)
+
+    data = [[p(h) for h in HEADERS]] + [[p(c) for c in row] for row in _rows(apps)]
+
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), title="Arizalar")
-    table = Table([HEADERS] + _rows(apps), repeatRows=1)
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        title="Arizalar",
+        leftMargin=24,
+        rightMargin=24,
+        topMargin=24,
+        bottomMargin=24,
+    )
+    table = Table(
+        data,
+        colWidths=[26, 130, 40, 86, 125, 185, 92, 72],
+        repeatRows=1,
+    )
     table.setStyle(
         TableStyle(
             [
-                ("FONTNAME", (0, 0), (-1, -1), "DejaVu"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ]
         )
     )

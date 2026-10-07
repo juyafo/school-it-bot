@@ -1,13 +1,15 @@
+from html import escape
+
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from ..config import settings
 from ..db import Application, SessionMaker
-from ..keyboards import REGISTER_BTN, main_kb, phone_kb
+from ..keyboards import DAYS, REGISTER_BTN, days_kb, main_kb, phone_kb
 from ..states import Register
 from ..utils import normalize_phone, parse_grade
 
@@ -88,6 +90,44 @@ async def get_grade(message: Message, state: FSMContext):
         )
         return
     await state.update_data(grade=grade)
+    await state.set_state(Register.days)
+    await message.answer(
+        "Qaysi kunlari darsga qatnasha olasiz? Pastdan birini tanlang:",
+        reply_markup=days_kb(),
+    )
+
+
+@router.callback_query(Register.days, F.data.startswith("days:"))
+async def get_days(call: CallbackQuery, state: FSMContext):
+    days = DAYS.get(call.data.split(":", 1)[1])
+    if not days:
+        await call.answer("Noma'lum tanlov", show_alert=True)
+        return
+    await state.update_data(days=days)
+    await state.set_state(Register.free_time)
+    await call.message.edit_text(f"📅 Kunlar: <b>{days}</b>")
+    await call.message.answer(
+        "Qaysi vaqtda bo'sh bo'lasiz? Soatlarni yozing:\n"
+        "<i>Masalan: 15:00 dan 18:00 gacha</i>"
+    )
+    await call.answer()
+
+
+@router.message(Register.days)
+async def days_reminder(message: Message):
+    await message.answer("Iltimos, yuqoridagi tugmalardan birini tanlang 👆")
+
+
+@router.message(Register.free_time, F.text)
+async def get_free_time(message: Message, state: FSMContext):
+    free_time = " ".join(message.text.split())
+    if not 3 <= len(free_time) <= 100:
+        await message.answer(
+            "Vaqtni qisqa yozing (3 dan 100 belgigacha).\n"
+            "<i>Masalan: 15:00 dan 18:00 gacha</i>"
+        )
+        return
+    await state.update_data(free_time=free_time)
     await state.set_state(Register.phone)
     await message.answer(
         "Telefon raqamingizni yozing yoki pastdagi tugma orqali ulashing:",
@@ -127,6 +167,8 @@ async def finish(message: Message, state: FSMContext, bot: Bot, phone: str):
         username=user.username,
         full_name=data["full_name"],
         grade=data["grade"],
+        days=data["days"],
+        free_time=data["free_time"],
         phone=phone,
     )
     try:
@@ -139,17 +181,16 @@ async def finish(message: Message, state: FSMContext, bot: Bot, phone: str):
         return
 
     await state.clear()
-    await message.answer(
-        SUCCESS,
-        reply_markup=main_kb(),
-    )
+    await message.answer(SUCCESS, reply_markup=main_kb())
 
     text = (
         "🆕 <b>Yangi ariza</b>\n\n"
-        f"👤 {app.full_name}\n"
+        f"👤 {escape(app.full_name)}\n"
         f"🏫 {app.grade}\n"
+        f"📅 {app.days}\n"
+        f"🕐 {escape(app.free_time)}\n"
         f"📞 {app.phone}\n"
-        f"🔗 {'@' + app.username if app.username else 'username yo`q'}"
+        f"🔗 {'@' + escape(app.username) if app.username else 'username yo`q'}"
     )
     for admin_id in settings.admin_ids:
         try:

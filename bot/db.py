@@ -21,6 +21,8 @@ class Application(Base):
     full_name: Mapped[str] = mapped_column(String(128))
     grade: Mapped[str] = mapped_column(String(10))
     phone: Mapped[str] = mapped_column(String(20))
+    days: Mapped[str] = mapped_column(String(40), server_default="")
+    free_time: Mapped[str] = mapped_column(String(100), server_default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
